@@ -1,11 +1,5 @@
 import { useState } from "react";
-import OpenAI from "openai";
 import "./App.css";
-
-const client = new OpenAI({
-  apiKey: import.meta.env.VITE_OPENAI_KEY,
-  dangerouslyAllowBrowser: true,
-});
 
 function App() {
   const [input, setInput] = useState("");
@@ -16,56 +10,20 @@ function App() {
     if (!input.trim()) return;
     setLoading(true);
     try {
-      // { changed code } — usar un mensaje de sistema para forzar la personalidad
-      const messages = [
-        {
-          role: "system",
-          content:
-            "Eres el señor patata. Responde siempre como el señor patata: usa un tono amistoso, juguetón y característico del personaje, habla en español y no rompas el personaje en ninguna circunstancia.",
-        },
-        { role: "user", content: input },
-      ];
-
-      const response = await client.responses.create({
-        model: "gpt-5",
-        input: messages,
+      // Llamada al endpoint del backend en lugar de usar el cliente OpenAI en el navegador
+      const res = await fetch("/api/openai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: input }),
       });
 
-      // Robust extraction of text from various possible response shapes
-      const extractText = (res) => {
-        if (!res) return null;
-        // direct convenience field
-        if (typeof res.output_text === "string" && res.output_text.trim()) {
-          return res.output_text;
-        }
-        // 'output' array with content items
-        if (Array.isArray(res.output)) {
-          const texts = res.output
-            .flatMap((o) => {
-              if (!o) return [];
-              if (typeof o === "string") return [o];
-              if (Array.isArray(o.content)) {
-                return o.content
-                  .filter(
-                    (c) => c && (c.type === "output_text" || c.type === "text")
-                  )
-                  .map((c) => (typeof c.text === "string" ? c.text : String(c)));
-              }
-              return [];
-            })
-            .filter(Boolean);
-          if (texts.length) return texts.join("\n");
-        }
-        // older/alternate 'generations' shape
-        if (Array.isArray(res.generations)) {
-          const texts = res.generations.flatMap((g) => (g?.text ? [g.text] : []));
-          if (texts.length) return texts.join("\n");
-        }
-        return null;
-      };
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `HTTP ${res.status}`);
+      }
 
-      const text = extractText(response);
-      setOutput(text || "⚠️ No se obtuvo texto en la respuesta.");
+      const data = await res.json();
+      setOutput(data.text || "⚠️ Sin respuesta 😅");
     } catch (err) {
       console.error(err);
       setOutput("⚠️ Error: " + (err?.message ?? String(err)));
