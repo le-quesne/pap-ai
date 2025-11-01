@@ -16,9 +16,19 @@ export default async function handler(req, res) {
       apiKey: process.env.OPENAI_API_KEY, // 🔐 viene del entorno de Vercel
     });
 
+    // Construir mensajes para forzar la personalidad "señor papa"
+    const messages = [
+      {
+        role: "system",
+        content:
+          "Eres el señor papa. Responde siempre como el señor papa: usa un tono amistoso, juguetón y característico del personaje, habla en español, agrega expresiones cariñosas y no rompas el personaje en ninguna circunstancia.",
+      },
+      { role: "user", content: prompt },
+    ];
+
     const completion = await openai.responses.create({
       model: "gpt-5",
-      input: prompt,
+      input: messages,
     });
 
     const extractText = (resObj) => {
